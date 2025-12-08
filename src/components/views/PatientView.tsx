@@ -90,12 +90,19 @@ export function PatientView() {
             const data = await res.json();
             setIsProcessing(false);
 
+            if (!res.ok) {
+                console.error("API Error:", data.error);
+                alert("Error: " + (data.error || "Failed to process speech. Check API keys."));
+                return;
+            }
+
             if (data.audio) {
                 playAudio(data.audio);
             }
         } catch (error) {
             console.error("Error sending audio:", error);
             setIsProcessing(false);
+            alert("Connection Error. Please check your network.");
         }
     };
 

@@ -5,7 +5,19 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
     try {
-        const { message, profile } = await req.json();
+        const { message, profile: userProfile } = await req.json();
+
+        // Fallback Profile to prevent crashes
+        const profile = userProfile || {
+            name: "Sarah",
+            relation: "Daughter",
+            gender: "female",
+            lifeStory: "A loving family with many happy memories.",
+            boundaries: "None"
+        };
+
+        console.log("Processing Request for:", profile.name);
+
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         // --- 1. DUAL-LAYER CLINICAL SYSTEM PROMPT ---
@@ -26,42 +38,66 @@ export async function POST(req: Request) {
     SAFETY: If they express pain or medical emergency, suggest calling a nurse.
     `;
 
-        const chat = model.startChat({
-            history: [
-                { role: "user", parts: [{ text: systemPrompt }] },
-                { role: "model", parts: [{ text: "I understand. I am ready to be a loving companion." }] },
-            ],
-        });
+        let text = "";
+        try {
+            const chat = model.startChat({
+                history: [
+                    { role: "user", parts: [{ text: systemPrompt }] },
+                    { role: "model", parts: [{ text: "I understand. I am ready to be a loving companion." }] },
+                ],
+            });
 
-        const result = await chat.sendMessage(message);
-        const text = result.response.text();
+            console.log("Sending to Gemini...");
+            const result = await chat.sendMessage(message);
+            text = result.response.text();
+            console.log("Gemini Response:", text);
+        } catch (geminiError) {
+            console.error("Gemini API Error:", geminiError);
+            return NextResponse.json({ error: "AI Processing Failed" }, { status: 500 });
+        }
 
         // --- 2. GENDERED VOICE GENERATION (ElevenLabs) ---
         const voiceId = profile.gender === 'male'
             ? process.env.ELEVENLABS_VOICE_ID_MALE
             : process.env.ELEVENLABS_VOICE_ID_FEMALE;
 
-        const voiceRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: "eleven_monolingual_v1",
-                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-            }),
-        });
+        if (!voiceId) {
+            console.warn("Missing Voice ID for gender:", profile.gender);
+        }
 
-        if (!voiceRes.ok) throw new Error("Voice generation failed");
+        try {
+            console.log("Generating Voice with ID:", voiceId);
+            const voiceRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
+                },
+                body: JSON.stringify({
+                    text: text,
+                    model_id: "eleven_monolingual_v1",
+                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                }),
+            });
 
-        const audioBuffer = await voiceRes.arrayBuffer();
-        const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+            if (!voiceRes.ok) {
+                const errText = await voiceRes.text();
+                console.error("ElevenLabs Error:", errText);
+                throw new Error(`Voice generation failed: ${voiceRes.statusText}`);
+            }
 
-        return NextResponse.json({ text, audio: audioBase64 });
+            const audioBuffer = await voiceRes.arrayBuffer();
+            const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+
+            return NextResponse.json({ text, audio: audioBase64 });
+        } catch (voiceError) {
+            console.error("Voice Generation Error:", voiceError);
+            // Return text even if voice fails
+            return NextResponse.json({ text, error: "Voice failed" });
+        }
+
     } catch (error) {
-        console.error(error);
+        console.error("General API Error:", error);
         return NextResponse.json({ error: "Error processing request" }, { status: 500 });
     }
 }
