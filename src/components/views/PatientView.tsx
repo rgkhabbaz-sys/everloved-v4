@@ -4,9 +4,17 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
 import { useMicVAD } from "@ricky0123/vad-react";
+import * as ort from "onnxruntime-web";
 import { cn } from "@/lib/utils";
 
-// Removed global ORT config to allow library defaults (V3 style)
+// FORCE LOCAL ORT INSTANCE (The one that works!)
+if (typeof window !== "undefined") {
+    (window as any).ort = ort;
+    ort.env.wasm.wasmPaths = "/";
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.simd = false;
+    ort.env.wasm.proxy = false;
+}
 
 export function PatientView() {
     // 1. STATE MANAGEMENT
@@ -14,9 +22,10 @@ export function PatientView() {
     const [isTalking, setIsTalking] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null);
 
     // 5. DEBUG LOGGING (History of last 3 logs)
-    const [debugLog, setDebugLog] = useState<string[]>(["Ready."]);
+    const [debugLog, setDebugLog] = useState<string[]>(["Init..."]);
     // 6. AI TEXT RESPONSE (Visible Feedback)
     const [aiResponse, setAiResponse] = useState<string | null>(null);
 
@@ -27,10 +36,36 @@ export function PatientView() {
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    // PRE-FETCH MODEL TO BLOB (Bypass Library Fetch)
+    useEffect(() => {
+        const loadModel = async () => {
+            try {
+                addLog("Pre-fetching Model...");
+                const response = await fetch("/silero_vad.onnx");
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                setModelBlobUrl(url);
+                addLog("Model Blob Ready.");
+            } catch (e) {
+                addLog("Model Fetch Fail");
+            }
+        };
+        loadModel();
+    }, []);
+
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
         positiveSpeechThreshold: 0.6,
+        // FORCE LOCAL FILES
+        // @ts-ignore
+        modelURL: modelBlobUrl || "/silero_vad.onnx",
+        // @ts-ignore
+        workletURL: "/vad.worklet.bundle.min.js",
+        // @ts-ignore
+        onnxWASMBasePath: "/",
+        // @ts-ignore
+        baseAssetPath: "/",
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
