@@ -88,11 +88,11 @@ export function PatientView() {
                 if (!modelRes.ok) throw new Error(`Model 404 (${modelRes.status})`);
 
                 // MANUAL TEST: Try to create session to see REAL error
-                if ((window as any).ort) {
-                    addLog("Diag: Testing ONNX Create...");
-                    await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
-                    addLog("Diag: Session Create OK.");
-                }
+                // if ((window as any).ort) {
+                //     addLog("Diag: Testing ONNX Create...");
+                //     await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
+                //     addLog("Diag: Session Create OK.");
+                // }
             } catch (diagErr: any) {
                 console.error("Diagnostic Fail:", diagErr);
                 addLog(`CRITICAL: ${diagErr.message}`);
