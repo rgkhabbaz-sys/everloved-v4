@@ -33,7 +33,6 @@ export function PatientView() {
     const vad = useMicVAD({
         startOnLoad: false,
         positiveSpeechThreshold: 0.6, // Lower threshold to make it more sensitive
-        minSpeechFrames: 4, // React faster
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
