@@ -122,7 +122,14 @@ function AvatarConfiguration() {
     const handleSave = () => {
         setIsSaving(true);
         localStorage.setItem("everloved_profile", JSON.stringify(profile));
-        setTimeout(() => setIsSaving(false), 800);
+
+        // Dispatch event so PatientView knows to reload profile (if we implement that listener)
+        window.dispatchEvent(new Event("storage"));
+
+        setTimeout(() => {
+            setIsSaving(false);
+            alert("Profile Updated");
+        }, 800);
     };
 
     const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, field: "avatar" | "background" | "video", index?: number) => {
@@ -343,74 +350,105 @@ const agitationData = [
 
 function MonitoringDashboard() {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-8">
-                <GlassCard title="Agitation Levels" icon={Activity}>
-                    <div className="h-64 w-full mt-4">
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* 1. Agitation Levels Chart (Left Col, Span 2) */}
+                <div className="lg:col-span-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 relative">
+                    {/* Background Grid Lines for 'Zero' */}
+                    <div className="absolute inset-x-6 bottom-10 h-px bg-white/5" />
+                    <div className="absolute inset-x-6 top-6 h-px bg-white/5" />
+
+                    <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={agitationData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="rgba(255,255,255,0.3)" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)' }} />
-                                <Bar dataKey="scale" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={30}>
+                            <BarChart data={agitationData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    stroke="rgba(255,255,255,0.3)"
+                                    fontSize={10}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, dy: 10 }}
+                                />
+                                <YAxis
+                                    stroke="rgba(255,255,255,0.3)"
+                                    fontSize={10}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                                />
+                                <Bar dataKey="scale" radius={[4, 4, 0, 0]} barSize={24}>
                                     {agitationData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.scale > 4 ? '#ef4444' : '#22c55e'} />
+                                        <Cell key={`cell-${index}`} fill={entry.scale > 3 ? '#ef4444' : '#22c55e'} />
                                     ))}
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </GlassCard>
+                </div>
 
-                <GlassCard title="Recent Logs" icon={List}>
-                    <div className="space-y-4">
-                        {[
-                            { time: "10:42 AM", event: "Conversation about gardening", type: "Positive" },
-                            { time: "12:15 PM", event: "Exhibited mild confusion regarding lunch", type: "Neutral" },
-                            { time: "02:30 PM", event: "Asked for 'Mother', redirected successfully", type: "Action" },
-                        ].map((log, i) => (
-                            <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
-                                <span className="text-xs font-mono text-white/40">{log.time}</span>
-                                <div className="flex-1 text-sm text-white/80">{log.event}</div>
-                                <span className={cn("text-[10px] uppercase font-bold px-2 py-1 rounded",
-                                    log.type === "Positive" ? "bg-green-500/10 text-green-400" :
-                                        log.type === "Action" ? "bg-blue-500/10 text-blue-400" : "bg-white/10 text-white/50"
-                                )}>{log.type}</span>
-                            </div>
-                        ))}
+                {/* 2. Status & Schedule (Right Col, Stacked) */}
+                <div className="space-y-6 flex flex-col">
+                    {/* Active & Calm Card */}
+                    <div className="flex-1 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-b from-white/5 to-transparent">
+                        <div className="relative mb-6">
+                            <div className="w-4 h-4 bg-green-500 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-pulse" />
+                        </div>
+                        <h3 className="text-2xl font-serif text-white mb-2">Active & Calm</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Last update: Just now</p>
                     </div>
-                </GlassCard>
+
+                    {/* Schedule Card */}
+                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex-1">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Calendar className="w-4 h-4 text-white/60" />
+                            <h4 className="text-white font-serif text-lg">Schedule</h4>
+                        </div>
+                        <div className="space-y-5">
+                            <div className="flex items-center gap-3 opacity-40">
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                <span className="text-xs font-mono text-white">09:00 AM Breakfast</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                                <span className="text-sm font-bold text-white">02:00 PM Medication</span>
+                            </div>
+                            <div className="flex items-center gap-3 opacity-60">
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                <span className="text-xs font-mono text-white">06:00 PM Evening Call</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-8">
-                <GlassCard title="Real-Time Status" icon={Activity} className="bg-gradient-to-br from-green-900/10 to-transparent">
-                    <div className="flex flex-col items-center justify-center py-8">
-                        <div className="relative">
-                            <div className="w-6 h-6 bg-green-500 rounded-full animate-pulse" />
-                            <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20" />
-                        </div>
-                        <h3 className="mt-6 text-2xl font-serif text-white">Active & Calm</h3>
-                        <p className="text-white/40 text-sm mt-2">Last update: Just now</p>
-                    </div>
-                </GlassCard>
+            {/* 3. Recent Logs (Bottom Row) */}
+            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                <div className="flex items-center gap-2 mb-6 text-white/90">
+                    <List className="w-5 h-5" />
+                    <h3 className="text-lg font-serif font-medium">Recent Logs</h3>
+                </div>
 
-                <GlassCard title="Schedule" icon={Calendar}>
-                    <div className="space-y-4 mt-2">
-                        <div className="flex items-center gap-3 opacity-50">
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                            <span className="text-sm text-white/50 line-through">09:00 AM Breakfast</span>
+                <div className="space-y-1">
+                    {[
+                        { time: "10:42 AM", event: "Conversation about gardening", type: "Positive" },
+                        { time: "12:15 PM", event: "Exhibited mild confusion regarding lunch", type: "Neutral" },
+                        { time: "02:30 PM", event: "Asked for 'Mother', redirected successfully", type: "Action" },
+                    ].map((log, i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
+                            <span className="text-xs font-mono text-white/40 w-20">{log.time}</span>
+                            <div className="flex-1 text-sm text-white/90 font-light">{log.event}</div>
+                            <span className={cn("text-[10px] uppercase font-bold px-3 py-1.5 rounded-md w-20 text-center tracking-wider",
+                                log.type === "Positive" ? "bg-green-500/20 text-green-400 border border-green-500/20" :
+                                    log.type === "Action" ? "bg-blue-500/20 text-blue-400 border border-blue-500/20" : "bg-white/10 text-white/40 border border-white/5"
+                            )}>{log.type}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                            <span className="text-sm text-white font-medium">02:00 PM Medication</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                            <span className="text-sm text-white/60">06:00 PM Evening Call</span>
-                        </div>
-                    </div>
-                </GlassCard>
+                    ))}
+                </div>
             </div>
         </div>
     );
