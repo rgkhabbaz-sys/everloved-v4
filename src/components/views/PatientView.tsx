@@ -14,7 +14,12 @@ if (typeof window !== "undefined") {
     // Force ONNX to load WASM from our local public folder instead of CDN
     // This fixes "Failed to load resource" errors on restricted networks
     ort.env.wasm.wasmPaths = "/";
+
+    // HIGH COMPATIBILITY MODE
+    // Disable SIMD and Threading to support all browsers/devices
     ort.env.wasm.numThreads = 1;
+    ort.env.wasm.simd = false;
+    ort.env.wasm.proxy = false;
 }
 
 export function PatientView() {
