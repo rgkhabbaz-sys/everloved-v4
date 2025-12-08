@@ -19,13 +19,21 @@ export function PatientView() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
 
+    // 5. DEBUG LOGGING
+    const [debugLog, setDebugLog] = useState<string>("Ready.");
+
+    const addLog = (msg: string) => {
+        console.log(msg);
+        setDebugLog(prev => msg); // Keep only the latest message for cleanliness
+    };
+
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
         onSpeechStart: () => {
-            console.log("Speech Started");
+            addLog("Speech Detected...");
             setIsTalking(true);
             // Barge-in: Stop any playing audio
             if (audioRef.current) {
@@ -35,7 +43,7 @@ export function PatientView() {
             }
         },
         onSpeechEnd: (audio) => {
-            console.log("Speech Ended");
+            addLog("Speech Ended. Processing...");
             setIsTalking(false);
             setIsProcessing(true);
             handleUserSpeech(audio);
@@ -45,14 +53,17 @@ export function PatientView() {
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
         try {
-            console.log("Requesting microphone access...");
+            addLog("Requesting Mic Access...");
             // Explicitly request permission to trigger the browser prompt
             await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log("Microphone access granted. Starting VAD...");
+
+            addLog("Starting VAD...");
             setIsSessionActive(true);
             vad.start();
+            addLog("Listening (Hands-Free Active)");
         } catch (err) {
             console.error("Microphone permission denied:", err);
+            addLog("Error: Mic Permission Denied");
             alert("Please allow microphone access to use this feature.");
         }
     };
@@ -60,6 +71,7 @@ export function PatientView() {
     // 4. API INTEGRATION
     const handleUserSpeech = async (audioFloat32: Float32Array) => {
         try {
+            addLog("Encoding Audio...");
             // Convert Float32Array to WAV Base64 for Gemini
             const wavBase64 = float32ToWavBase64(audioFloat32);
 
@@ -78,6 +90,7 @@ export function PatientView() {
             const storedProfile = localStorage.getItem("everloved_profile");
             const profile = storedProfile ? JSON.parse(storedProfile) : null;
 
+            addLog("Sending to API...");
             const res = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -87,31 +100,47 @@ export function PatientView() {
                 }),
             });
 
-            const data = await res.json();
-            setIsProcessing(false);
-
             if (!res.ok) {
-                console.error("API Error:", data.error);
-                alert("Error: " + (data.error || "Failed to process speech. Check API keys."));
+                const errData = await res.json();
+                addLog(`API Error: ${errData.error}`);
+                alert("Error: " + (errData.error || "Failed to process speech. Check API keys."));
+                setIsProcessing(false);
                 return;
             }
 
+            const data = await res.json();
+            setIsProcessing(false);
+
             if (data.audio) {
+                addLog("Playing Response...");
                 playAudio(data.audio);
+            } else {
+                addLog("Received Text (No Audio)");
             }
         } catch (error) {
             console.error("Error sending audio:", error);
+            addLog("Connection Failed");
             setIsProcessing(false);
             alert("Connection Error. Please check your network.");
         }
     };
 
-    const playAudio = (base64Audio: string) => {
+    const playAudio = async (base64Audio: string) => {
         setIsPlaying(true);
         if (audioRef.current) {
-            audioRef.current.src = `data:audio/mpeg;base64,${base64Audio}`;
-            audioRef.current.play();
-            audioRef.current.onended = () => setIsPlaying(false);
+            try {
+                audioRef.current.src = `data:audio/mpeg;base64,${base64Audio}`;
+                await audioRef.current.play();
+                addLog("Speaking...");
+                audioRef.current.onended = () => {
+                    setIsPlaying(false);
+                    addLog("Listening...");
+                };
+            } catch (playError) {
+                console.error("Playback failed:", playError);
+                addLog("Error: Audio Autoplay Blocked");
+                setIsPlaying(false);
+            }
         }
     };
 
@@ -124,7 +153,7 @@ export function PatientView() {
 
                 {/* STATUS INDICATOR (ONLY WHEN ACTIVE) */}
                 {isSessionActive && (
-                    <div className="absolute top-12 left-0 right-0 flex justify-center pointer-events-none">
+                    <div className="absolute top-12 left-0 right-0 flex flex-col items-center pointer-events-none gap-2">
                         <motion.div
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -141,6 +170,11 @@ export function PatientView() {
                             {isPlaying && <><Volume2 className="w-4 h-4 text-green-400 animate-pulse" /> Speaking...</>}
                             {!isTalking && !isProcessing && !isPlaying && <><Mic className="w-4 h-4" /> Listening Hands-Free</>}
                         </motion.div>
+
+                        {/* DEBUG LOG - VISIBLE TO USER */}
+                        <div className="text-[10px] font-mono text-white/40 bg-black/20 px-2 py-1 rounded">
+                            Status: {debugLog}
+                        </div>
                     </div>
                 )}
 
