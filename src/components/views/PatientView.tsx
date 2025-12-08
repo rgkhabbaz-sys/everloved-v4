@@ -37,7 +37,10 @@ export function PatientView() {
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
-        positiveSpeechThreshold: 0.6, // Lower threshold to make it more sensitive
+        positiveSpeechThreshold: 0.6,
+        // Load Model & Worklet from local public folder
+        modelURL: "/silero_vad.onnx",
+        workletURL: "/vad.worklet.bundle.min.js",
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
