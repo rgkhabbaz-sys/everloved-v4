@@ -103,32 +103,8 @@ export function PatientView() {
         <div className="relative w-full h-full">
             <audio ref={audioRef} className="hidden" />
 
-            {/* START OVERLAY */}
-            <AnimatePresence>
-                {!isSessionActive && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-                    >
-                        <motion.button
-                            onClick={startConversation}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            animate={{ boxShadow: ["0 0 0 0px rgba(34, 197, 94, 0.4)", "0 0 0 20px rgba(34, 197, 94, 0)"] }}
-                            transition={{ repeat: Infinity, duration: 2 }}
-                            className="px-8 py-4 bg-green-500 text-white rounded-full text-xl font-medium flex items-center gap-3 shadow-2xl"
-                        >
-                            <MessageCircle className="w-8 h-8" />
-                            Start Conversation
-                        </motion.button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
             {/* MAIN CONTENT */}
-            <div className={`relative z-10 w-full h-full p-8 flex flex-col justify-end transition-all duration-1000 ${!isSessionActive ? 'blur-sm scale-95' : 'blur-0 scale-100'}`}>
+            <div className="relative z-10 w-full h-full p-8 flex flex-col justify-end">
 
                 {/* STATUS INDICATOR (ONLY WHEN ACTIVE) */}
                 {isSessionActive && (
@@ -161,24 +137,24 @@ export function PatientView() {
                     {/* Controls */}
                     <div className="flex flex-col items-end gap-6 mb-4">
                         {/* Conversation Button - Works as Manual Emergency Trigger too */}
-                        {isSessionActive && (
-                            <motion.div
-                                animate={isPlaying ? { scale: [1, 1.1, 1] } : {}}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                            >
-                                <div className={cn(
-                                    "w-20 h-20 rounded-full flex items-center justify-center shadow-2xl mt-4 transition-all duration-300",
-                                    isTalking ? "bg-red-500 scale-110 shadow-[0_0_30px_rgba(239,68,68,0.5)]" :
-                                        isProcessing ? "bg-blue-500 scale-100" : "bg-white"
-                                )}>
-                                    {isProcessing ? (
-                                        <Loader2 className="w-8 h-8 text-white animate-spin" />
-                                    ) : (
-                                        <Mic className={cn("w-8 h-8", isTalking ? "text-white" : "text-black")} />
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
+                        <motion.button
+                            onClick={startConversation}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            animate={isPlaying ? { scale: [1, 1.1, 1] } : {}}
+                            transition={isPlaying ? { repeat: Infinity, duration: 2 } : {}}
+                            className={cn(
+                                "w-20 h-20 rounded-full flex items-center justify-center shadow-2xl mt-4 transition-all duration-300",
+                                isTalking ? "bg-red-500 scale-110 shadow-[0_0_30px_rgba(239,68,68,0.5)]" :
+                                    isProcessing ? "bg-blue-500 scale-100" : "bg-white"
+                            )}
+                        >
+                            {isProcessing ? (
+                                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                            ) : (
+                                <Mic className={cn("w-8 h-8", isTalking ? "text-white" : "text-black")} />
+                            )}
+                        </motion.button>
 
                         <div className="flex flex-col gap-4 items-end">
                             {[
