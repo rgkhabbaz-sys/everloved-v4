@@ -32,6 +32,8 @@ export function PatientView() {
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
+        positiveSpeechThreshold: 0.6, // Lower threshold to make it more sensitive
+        minSpeechFrames: 4, // React faster
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
@@ -50,6 +52,13 @@ export function PatientView() {
         },
     });
 
+    // Monitor VAD Loading State
+    useEffect(() => {
+        if (vad.loading) addLog("Loading VAD Model...");
+        if (vad.errored) addLog("Error: VAD Failed to Load");
+        if (!vad.loading && !vad.errored && isSessionActive) addLog("Listening (VAD Ready)");
+    }, [vad.loading, vad.errored, isSessionActive]);
+
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
         try {
@@ -60,7 +69,6 @@ export function PatientView() {
             addLog("Starting VAD...");
             setIsSessionActive(true);
             vad.start();
-            addLog("Listening (Hands-Free Active)");
         } catch (err) {
             console.error("Microphone permission denied:", err);
             addLog("Error: Mic Permission Denied");
