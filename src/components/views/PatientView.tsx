@@ -26,6 +26,8 @@ export function PatientView() {
 
     // 5. DEBUG LOGGING (History of last 3 logs)
     const [debugLog, setDebugLog] = useState<string[]>(["Init..."]);
+    // 7. VOLUME METER
+    const [volume, setVolume] = useState(0);
     // 6. AI TEXT RESPONSE (Visible Feedback)
     const [aiResponse, setAiResponse] = useState<string | null>(null);
 
@@ -123,8 +125,28 @@ export function PatientView() {
     const startConversation = async () => {
         try {
             addLog("Req Mic Access...");
-            // Explicitly request permission to trigger the browser prompt
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Explicitly request permission & start Volume Meter
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Setup Volume Analysis
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyzer = audioContext.createAnalyser();
+            analyzer.fftSize = 256;
+            source.connect(analyzer);
+
+            const bufferLength = analyzer.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const updateVolume = () => {
+                analyzer.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const avg = sum / bufferLength;
+                setVolume(avg / 255); // Normalize 0-1
+                requestAnimationFrame(updateVolume);
+            };
+            updateVolume();
 
             addLog("Mic OK. Starting VAD...");
             setIsSessionActive(true);
@@ -255,6 +277,15 @@ export function PatientView() {
 
                         {/* DEBUG LOG - VISIBLE TO USER */}
                         <div className="flex flex-col gap-1 items-center">
+                            {/* VOLUME METER */}
+                            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden border border-white/20 mb-1">
+                                <div
+                                    className="h-full bg-green-500 transition-all duration-75"
+                                    style={{ width: `${Math.min(100, volume * 200)}%` }}
+                                />
+                            </div>
+                            <div className="text-[10px] text-white/50">Mic Volume</div>
+
                             {debugLog.map((log, i) => (
                                 <div key={i} className="text-[10px] font-mono text-white/60 bg-black/40 px-2 py-0.5 rounded shadow-sm">
                                     {log}
