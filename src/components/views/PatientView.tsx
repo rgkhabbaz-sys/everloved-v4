@@ -60,7 +60,7 @@ export function PatientView() {
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
-        positiveSpeechThreshold: 0.5,
+        positiveSpeechThreshold: 0.1, // Ultra-sensitive
         // FORCE LOCAL FILES
         // @ts-ignore
         modelURL: modelBlobUrl || "/silero_vad.onnx",
@@ -81,7 +81,7 @@ export function PatientView() {
             }
         },
         onSpeechStart: () => {
-            addLog("Speech Detected...");
+            addLog("Speech Detected!");
             setIsTalking(true);
             // Barge-in: Stop any playing audio
             if (audioRef.current) {
@@ -272,15 +272,6 @@ export function PatientView() {
 
                         {/* DEBUG LOG - VISIBLE TO USER */}
                         <div className="flex flex-col gap-1 items-center">
-                            {/* VOLUME METER */}
-                            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden border border-white/20 mb-1">
-                                <div
-                                    className="h-full bg-green-500 transition-all duration-75"
-                                    style={{ width: `${Math.min(100, volume * 200)}%` }}
-                                />
-                            </div>
-                            <div className="text-[10px] text-white/50">Mic Volume</div>
-
                             {debugLog.map((log, i) => (
                                 <div key={i} className="text-[10px] font-mono text-white/60 bg-black/40 px-2 py-0.5 rounded shadow-sm">
                                     {log}
