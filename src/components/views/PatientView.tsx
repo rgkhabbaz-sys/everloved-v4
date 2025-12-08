@@ -10,10 +10,15 @@ import { cn } from "@/lib/utils";
 // Make onnxruntime available for vad-react
 if (typeof window !== "undefined") {
     (window as any).ort = ort;
-    // Force ONNX to load WASM from our local public folder instead of CDN
-    // This fixes "Failed to load resource" errors on restricted networks
-    ort.env.wasm.wasmPaths = "/";
-    ort.env.wasm.numThreads = 1; // Prevent threading issues on some devices
+
+    // Explicitly map each WASM binary to the public folder
+    ort.env.wasm.wasmPaths = {
+        'ort-wasm.wasm': '/ort-wasm.wasm',
+        'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
+        'ort-wasm-threaded.wasm': '/ort-wasm-threaded.wasm',
+        'ort-wasm-simd-threaded.wasm': '/ort-wasm-simd-threaded.wasm',
+    };
+    ort.env.wasm.numThreads = 1;
 }
 
 export function PatientView() {
