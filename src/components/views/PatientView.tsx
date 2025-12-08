@@ -48,6 +48,11 @@ export function PatientView() {
         modelURL: "/silero_vad.onnx",
         // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
+        // Force library to look for WASM in local public folder too
+        // @ts-ignore
+        onnxWASMBasePath: "/",
+        // @ts-ignore
+        baseAssetPath: "/",
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
