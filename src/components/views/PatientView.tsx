@@ -10,6 +10,10 @@ import { cn } from "@/lib/utils";
 // Make onnxruntime available for vad-react
 if (typeof window !== "undefined") {
     (window as any).ort = ort;
+    // Force ONNX to load WASM from our local public folder instead of CDN
+    // This fixes "Failed to load resource" errors on restricted networks
+    ort.env.wasm.wasmPaths = "/";
+    ort.env.wasm.numThreads = 1; // Prevent threading issues on some devices
 }
 
 export function PatientView() {
@@ -53,8 +57,11 @@ export function PatientView() {
 
     // Monitor VAD Loading State
     useEffect(() => {
-        if (vad.loading) addLog("Loading VAD Model...");
-        if (vad.errored) addLog("Error: VAD Failed to Load");
+        if (vad.loading) addLog("Loading VAD Model... (Fetching WASM)");
+        if (vad.errored) {
+            console.error("VAD Error Details:", vad.errored);
+            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 30)}...`);
+        }
         if (!vad.loading && !vad.errored && isSessionActive) addLog("Listening (VAD Ready)");
     }, [vad.loading, vad.errored, isSessionActive]);
 
