@@ -94,7 +94,7 @@ export function PatientView() {
                 addLog(`Listening (VAD Ready) (L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
             }
         }
-    }, [vad.loading, vad.errored, isSessionActive, debugLog]);
+    }, [vad.loading, vad.errored, isSessionActive]); // Removed debugLog to fix infinite loop
 
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
