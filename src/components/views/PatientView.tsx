@@ -66,7 +66,8 @@ export function PatientView() {
             }
         },
         onSpeechEnd: (audio) => {
-            addLog("Speech Ended. Processing...");
+            const secs = (audio.length / 16000).toFixed(2);
+            addLog(`Speech End. (${secs}s / ${audio.length} samples)`);
             setIsTalking(false);
             setIsProcessing(true);
             handleUserSpeech(audio);
