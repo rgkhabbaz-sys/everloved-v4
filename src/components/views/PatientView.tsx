@@ -31,6 +31,8 @@ export function PatientView() {
 
     // 5. DEBUG LOGGING (History of last 3 logs)
     const [debugLog, setDebugLog] = useState<string[]>(["Ready."]);
+    // 6. AI TEXT RESPONSE (Visible Feedback)
+    const [aiResponse, setAiResponse] = useState<string | null>(null);
 
     const addLog = (msg: string) => {
         console.log(msg);
@@ -168,6 +170,10 @@ export function PatientView() {
             const data = await res.json();
             setIsProcessing(false);
 
+            if (data.text) {
+                setAiResponse(data.text);
+            }
+
             if (data.audio) {
                 addLog("Playing Response...");
                 playAudio(data.audio);
@@ -227,6 +233,13 @@ export function PatientView() {
                             {isPlaying && <><Volume2 className="w-4 h-4 text-green-400 animate-pulse" /> Speaking...</>}
                             {!isTalking && !isProcessing && !isPlaying && <><Mic className="w-4 h-4" /> Listening Hands-Free</>}
                         </motion.div>
+
+                        {/* AI RESPONSE TEXT - VISIBLE FEEDBACK */}
+                        {aiResponse && (
+                            <div className="mb-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 max-w-md text-center">
+                                <p className="text-white/90 text-sm font-medium">"{aiResponse}"</p>
+                            </div>
+                        )}
 
                         {/* DEBUG LOG - VISIBLE TO USER */}
                         <div className="flex flex-col gap-1 items-center">
