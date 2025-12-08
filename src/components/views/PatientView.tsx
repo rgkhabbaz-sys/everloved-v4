@@ -74,27 +74,31 @@ export function PatientView() {
 
             if (vad.loading) addLog(`Loading...(L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
 
-            // DIAGNOSTIC: Check if files actually exist
+            // DIAGNOSTIC: Check if files actually exist and ONNX works
             try {
                 const modelRes = await fetch("/silero_vad.onnx", { method: 'HEAD' });
                 if (!modelRes.ok) throw new Error(`Model 404 (${modelRes.status})`);
+
+                // MANUAL TEST: Try to create session to see REAL error
+                if ((window as any).ort) {
+                    addLog("Diag: Testing ONNX Create...");
+                    await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
+                    addLog("Diag: Session Create OK.");
+                }
             } catch (diagErr: any) {
-                addLog(`CRITICAL: Model Check Fail: ${diagErr.message}`);
+                console.error("Diagnostic Fail:", diagErr);
+                addLog(`CRITICAL: ${diagErr.message}`);
+                // If it's an object, dump it
+                if (diagErr.errors) addLog(`Details: ${JSON.stringify(diagErr.errors)}`);
             }
         };
         runDiagnostics();
 
         if (vad.errored) {
             console.error("VAD Error Details:", vad.errored);
-            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 30)}... (L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
+            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 40)}`);
         }
-        if (!vad.loading && !vad.errored && isSessionActive) {
-            // Only log if we haven't already said it to avoid spamming
-            if (debugLog[0] !== "Listening (VAD Ready)") {
-                addLog(`Listening (VAD Ready) (L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
-            }
-        }
-    }, [vad.loading, vad.errored, isSessionActive]); // Removed debugLog to fix infinite loop
+    }, [vad.loading, vad.errored, isSessionActive]);
 
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
@@ -220,8 +224,12 @@ export function PatientView() {
                         </motion.div>
 
                         {/* DEBUG LOG - VISIBLE TO USER */}
-                        <div className="text-[10px] font-mono text-white/40 bg-black/20 px-2 py-1 rounded">
-                            Status: {debugLog}
+                        <div className="flex flex-col gap-1 items-center">
+                            {debugLog.map((log, i) => (
+                                <div key={i} className="text-[10px] font-mono text-white/60 bg-black/40 px-2 py-0.5 rounded shadow-sm">
+                                    {log}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
