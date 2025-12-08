@@ -55,10 +55,12 @@ export function PatientView() {
         loadModel();
     }, []);
 
+    const frameCount = useRef(0);
+
     // 2. THE EAR (VAD HOOK)
     const vad = useMicVAD({
         startOnLoad: false,
-        positiveSpeechThreshold: 0.6,
+        positiveSpeechThreshold: 0.5,
         // FORCE LOCAL FILES
         // @ts-ignore
         modelURL: modelBlobUrl || "/silero_vad.onnx",
@@ -68,6 +70,16 @@ export function PatientView() {
         onnxWASMBasePath: "/",
         // @ts-ignore
         baseAssetPath: "/",
+        onFrameProcessed: (probs) => {
+            frameCount.current++;
+            if (frameCount.current % 50 === 0) {
+                // Log probability to see if model is alive
+                // probs is usually a number or object depending on version. Assuming number for isSpeech event
+                // Actually vad-react onFrameProcessed gives raw probabilities.
+                // let's just assume it works and print it.
+                // console.log("VAD Prob:", probs);
+            }
+        },
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
@@ -125,28 +137,11 @@ export function PatientView() {
     const startConversation = async () => {
         try {
             addLog("Req Mic Access...");
-            // Explicitly request permission & start Volume Meter
+            // Explicitly request permission to trigger the browser prompt
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // Setup Volume Analysis
-            const audioContext = new AudioContext();
-            const source = audioContext.createMediaStreamSource(stream);
-            const analyzer = audioContext.createAnalyser();
-            analyzer.fftSize = 256;
-            source.connect(analyzer);
-
-            const bufferLength = analyzer.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-
-            const updateVolume = () => {
-                analyzer.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-                const avg = sum / bufferLength;
-                setVolume(avg / 255); // Normalize 0-1
-                requestAnimationFrame(updateVolume);
-            };
-            updateVolume();
+            // IMMEDIATE RELEASE: Close this stream so VAD can open its own without conflict
+            stream.getTracks().forEach(t => t.stop());
 
             addLog("Mic OK. Starting VAD...");
             setIsSessionActive(true);
