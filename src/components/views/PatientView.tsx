@@ -29,12 +29,12 @@ export function PatientView() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // 5. DEBUG LOGGING
-    const [debugLog, setDebugLog] = useState<string>("Ready.");
+    // 5. DEBUG LOGGING (History of last 3 logs)
+    const [debugLog, setDebugLog] = useState<string[]>(["Ready."]);
 
     const addLog = (msg: string) => {
         console.log(msg);
-        setDebugLog(prev => msg); // Keep only the latest message for cleanliness
+        setDebugLog(prev => [msg, ...prev].slice(0, 3));
     };
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -69,50 +69,50 @@ export function PatientView() {
     // Monitor VAD Loading State & Run Diagnostics
     useEffect(() => {
         const runDiagnostics = async () => {
-            if (vad.loading) addLog("Loading...(Step 1: Init)");
+            // Diagnostic: Check global ORT
+            if (!(window as any).ort) addLog("CRITICAL: Global 'ort' missing!");
 
-            // DIAGNOSTIC: Check if files actually exist and ONNX works
+            if (vad.loading) addLog(`Loading...(L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
+
+            // DIAGNOSTIC: Check if files actually exist
             try {
                 const modelRes = await fetch("/silero_vad.onnx", { method: 'HEAD' });
-                if (!modelRes.ok) throw new Error(`Model File Missing (${modelRes.status})`);
-
-                // Test ONNX Session Creation Manually (to catch hidden errors)
-                // This mimics what VAD library does but gives us the REAL error
-                if ((window as any).ort) {
-                    addLog("Test: Creating Session...");
-                    await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
-                    addLog("Test: Session OK. VAD Starting...");
-                }
+                if (!modelRes.ok) throw new Error(`Model 404 (${modelRes.status})`);
             } catch (diagErr: any) {
-                console.error("Diagnostic Fail:", diagErr);
-                addLog(`CRITICAL: ${diagErr.message}`);
+                addLog(`CRITICAL: Model Check Fail: ${diagErr.message}`);
             }
         };
         runDiagnostics();
 
         if (vad.errored) {
             console.error("VAD Error Details:", vad.errored);
-            // The library hides the real error, so diagnostics above is crucial
-            if (debugLog.includes("CRITICAL")) return;
-            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 30)}...`);
+            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 30)}... (L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
         }
-        if (!vad.loading && !vad.errored && isSessionActive) addLog("Listening (VAD Ready)");
-    }, [vad.loading, vad.errored, isSessionActive]);
+        if (!vad.loading && !vad.errored && isSessionActive) {
+            // Only log if we haven't already said it to avoid spamming
+            if (debugLog[0] !== "Listening (VAD Ready)") {
+                addLog(`Listening (VAD Ready) (L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
+            }
+        }
+    }, [vad.loading, vad.errored, isSessionActive, debugLog]);
 
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
         try {
-            addLog("Requesting Mic Access...");
+            addLog("Req Mic Access...");
             // Explicitly request permission to trigger the browser prompt
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            addLog("Starting VAD...");
+            addLog("Mic OK. Starting VAD...");
             setIsSessionActive(true);
-            vad.start();
-        } catch (err) {
-            console.error("Microphone permission denied:", err);
-            addLog("Error: Mic Permission Denied");
-            alert("Please allow microphone access to use this feature.");
+
+            // Await start to catch immediate failures
+            await vad.start();
+            addLog("VAD Start command sent.");
+        } catch (err: any) {
+            console.error("Start Failed:", err);
+            addLog(`Error: Start Failed: ${err.message}`);
+            alert("Failed to access microphone or start AI.");
         }
     };
 
