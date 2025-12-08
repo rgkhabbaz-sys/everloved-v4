@@ -39,7 +39,9 @@ export function PatientView() {
         startOnLoad: false,
         positiveSpeechThreshold: 0.6,
         // Load Model & Worklet from local public folder
+        // @ts-ignore - modelURL and workletURL are valid but missing from type definitions
         modelURL: "/silero_vad.onnx",
+        // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
         onSpeechStart: () => {
             addLog("Speech Detected...");
