@@ -1,9 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
 export async function POST(req: Request) {
+    const key = process.env.GEMINI_API_KEY;
+    console.log("DEBUG: GEMINI_API_KEY is", key ? `Present (${key.substring(0, 5)}...)` : "MISSING/UNDEFINED");
+
+    if (!key) {
+        console.error("CRITICAL: Message rejected because API Key is missing.");
+        return NextResponse.json({ error: "Server Configuration Error: Missing API Key" }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(key);
+
     try {
         const { message, profile: userProfile } = await req.json();
 
