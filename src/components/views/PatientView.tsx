@@ -91,7 +91,9 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
         // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
         // @ts-ignore
-        onnxWASMBasePath: "/",
+        // FIX: Point to specific WASM version compatible with the library (v1.14.0)
+        // Using local v1.17.1 WASM caused "Error 7" (valid file, wrong version)
+        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
         // @ts-ignore
         baseAssetPath: "/",
         onFrameProcessed: (probs) => {
@@ -160,23 +162,16 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
         try {
-            addLog("Req Mic Access...");
-            // Explicitly request permission to trigger the browser prompt
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            // IMMEDIATE RELEASE: Close this stream so VAD can open its own without conflict
-            stream.getTracks().forEach(t => t.stop());
-
-            addLog("Mic OK. Starting VAD...");
+            addLog("Starting VAD...");
             setIsSessionActive(true);
 
             // Await start to catch immediate failures
             await vad.start();
-            addLog("VAD Start command sent.");
+            addLog("Listening (VAD Started)");
         } catch (err: any) {
             console.error("Start Failed:", err);
             addLog(`Error: Start Failed: ${err.message}`);
-            alert("Failed to access microphone or start AI.");
+            alert("Failed to start AI. Check console.");
         }
     };
 
