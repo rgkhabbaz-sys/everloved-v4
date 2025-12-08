@@ -6,8 +6,15 @@ export async function POST(req: Request) {
     console.log("DEBUG: GEMINI_API_KEY is", key ? `Present (${key.substring(0, 5)}...)` : "MISSING/UNDEFINED");
 
     if (!key) {
-        console.error("CRITICAL: Message rejected because API Key is missing.");
-        return NextResponse.json({ error: "Server Configuration Error: Missing API Key" }, { status: 500 });
+        const availableKeys = Object.keys(process.env).filter(k => !k.startsWith('npm_') && !k.startsWith('_'));
+        console.error("CRITICAL: Message rejected. Key Missing. Available:", availableKeys);
+        return NextResponse.json({
+            error: "Server Configuration Error: Missing API Key",
+            debug: {
+                env: process.env.NODE_ENV,
+                availableKeys: availableKeys
+            }
+        }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(key);
