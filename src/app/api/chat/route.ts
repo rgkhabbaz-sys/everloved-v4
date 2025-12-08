@@ -51,9 +51,10 @@ export async function POST(req: Request) {
             const result = await chat.sendMessage(message);
             text = result.response.text();
             console.log("Gemini Response:", text);
-        } catch (geminiError) {
+        } catch (geminiError: any) {
             console.error("Gemini API Error:", geminiError);
-            return NextResponse.json({ error: "AI Processing Failed" }, { status: 500 });
+            const msg = geminiError?.message || "AI Processing Failed";
+            return NextResponse.json({ error: msg }, { status: 500 });
         }
 
         // --- 2. GENDERED VOICE GENERATION (ElevenLabs) ---
