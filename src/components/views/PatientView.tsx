@@ -66,11 +66,34 @@ export function PatientView() {
         },
     });
 
-    // Monitor VAD Loading State
+    // Monitor VAD Loading State & Run Diagnostics
     useEffect(() => {
-        if (vad.loading) addLog("Loading VAD Model... (Fetching WASM)");
+        const runDiagnostics = async () => {
+            if (vad.loading) addLog("Loading...(Step 1: Init)");
+
+            // DIAGNOSTIC: Check if files actually exist and ONNX works
+            try {
+                const modelRes = await fetch("/silero_vad.onnx", { method: 'HEAD' });
+                if (!modelRes.ok) throw new Error(`Model File Missing (${modelRes.status})`);
+
+                // Test ONNX Session Creation Manually (to catch hidden errors)
+                // This mimics what VAD library does but gives us the REAL error
+                if ((window as any).ort) {
+                    addLog("Test: Creating Session...");
+                    await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
+                    addLog("Test: Session OK. VAD Starting...");
+                }
+            } catch (diagErr: any) {
+                console.error("Diagnostic Fail:", diagErr);
+                addLog(`CRITICAL: ${diagErr.message}`);
+            }
+        };
+        runDiagnostics();
+
         if (vad.errored) {
             console.error("VAD Error Details:", vad.errored);
+            // The library hides the real error, so diagnostics above is crucial
+            if (debugLog.includes("CRITICAL")) return;
             addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 30)}...`);
         }
         if (!vad.loading && !vad.errored && isSessionActive) addLog("Listening (VAD Ready)");
