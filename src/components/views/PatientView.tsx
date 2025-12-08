@@ -43,9 +43,18 @@ export function PatientView() {
     });
 
     // 3. INTERACTION HANDLER
-    const startConversation = () => {
-        setIsSessionActive(true);
-        vad.start();
+    const startConversation = async () => {
+        try {
+            console.log("Requesting microphone access...");
+            // Explicitly request permission to trigger the browser prompt
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("Microphone access granted. Starting VAD...");
+            setIsSessionActive(true);
+            vad.start();
+        } catch (err) {
+            console.error("Microphone permission denied:", err);
+            alert("Please allow microphone access to use this feature.");
+        }
     };
 
     // 4. API INTEGRATION
