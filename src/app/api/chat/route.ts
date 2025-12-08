@@ -1,8 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
+// Support both standard UPPERCASE and User's MixedCase from Vercel
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.Gemini_API_Key;
+
 export async function POST(req: Request) {
-    const key = process.env.GEMINI_API_KEY;
+    const key = GEMINI_KEY;
     console.log("DEBUG: GEMINI_API_KEY is", key ? `Present (${key.substring(0, 5)}...)` : "MISSING/UNDEFINED");
 
     if (!key) {
