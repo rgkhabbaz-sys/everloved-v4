@@ -11,13 +11,9 @@ import { cn } from "@/lib/utils";
 if (typeof window !== "undefined") {
     (window as any).ort = ort;
 
-    // Explicitly map each WASM binary to the public folder
-    ort.env.wasm.wasmPaths = {
-        'ort-wasm.wasm': '/ort-wasm.wasm',
-        'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
-        'ort-wasm-threaded.wasm': '/ort-wasm-threaded.wasm',
-        'ort-wasm-simd-threaded.wasm': '/ort-wasm-simd-threaded.wasm',
-    };
+    // Force ONNX to load WASM from our local public folder instead of CDN
+    // This fixes "Failed to load resource" errors on restricted networks
+    ort.env.wasm.wasmPaths = "/";
     ort.env.wasm.numThreads = 1;
 }
 
