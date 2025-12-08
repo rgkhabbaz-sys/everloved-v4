@@ -45,16 +45,6 @@ export function PatientView() {
     const vad = useMicVAD({
         startOnLoad: false,
         positiveSpeechThreshold: 0.6,
-        // Load Model & Worklet from local public folder
-        // @ts-ignore - modelURL and workletURL are valid but missing from type definitions
-        modelURL: "/silero_vad.onnx",
-        // @ts-ignore
-        workletURL: "/vad.worklet.bundle.min.js",
-        // Force library to look for WASM in local public folder too
-        // @ts-ignore
-        onnxWASMBasePath: "/",
-        // @ts-ignore
-        baseAssetPath: "/",
         onSpeechStart: () => {
             addLog("Speech Detected...");
             setIsTalking(true);
