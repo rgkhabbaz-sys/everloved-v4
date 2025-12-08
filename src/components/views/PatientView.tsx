@@ -4,23 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
 import { useMicVAD } from "@ricky0123/vad-react";
-import * as ort from "onnxruntime-web";
+import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
+import { useMicVAD } from "@ricky0123/vad-react";
 import { cn } from "@/lib/utils";
 
-// Make onnxruntime available for vad-react
-if (typeof window !== "undefined") {
-    (window as any).ort = ort;
-
-    // Force ONNX to load WASM from our local public folder instead of CDN
-    // This fixes "Failed to load resource" errors on restricted networks
-    ort.env.wasm.wasmPaths = "/";
-
-    // HIGH COMPATIBILITY MODE
-    // Disable SIMD and Threading to support all browsers/devices
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.simd = false;
-    ort.env.wasm.proxy = false;
-}
+// Removed global ORT config to allow library defaults (V3 style)
 
 export function PatientView() {
     // 1. STATE MANAGEMENT
