@@ -6,6 +6,7 @@ interface UseEnergyVADOptions {
     positiveSpeechThreshold?: number; // 0.0 to 1.0 (Volume)
     minSpeechDuration?: number; // ms
     silenceTimeout?: number; // ms
+    maxSpeechDuration?: number; // ms (Hard limit to prevent 413 errors)
 }
 
 export function useEnergyVAD({
@@ -14,6 +15,7 @@ export function useEnergyVAD({
     positiveSpeechThreshold = 0.1,
     minSpeechDuration = 200,
     silenceTimeout = 1000,
+    maxSpeechDuration = 10000, // 10 seconds default limit (~3MB WAV)
 }: UseEnergyVADOptions) {
     const [isListening, setIsListening] = useState(false);
     const [isTalking, setIsTalking] = useState(false);
@@ -83,7 +85,7 @@ export function useEnergyVAD({
             console.error("VAD Start Error:", error);
             throw error;
         }
-    }, [positiveSpeechThreshold, silenceTimeout, minSpeechDuration]);
+    }, [positiveSpeechThreshold, silenceTimeout, minSpeechDuration, maxSpeechDuration]);
 
     const stop = useCallback(() => {
         if (streamRef.current) {
@@ -106,6 +108,25 @@ export function useEnergyVAD({
         audioChunksRef.current = [];
     }, []);
 
+    const processSpeechEnd = useCallback(() => {
+        // Merge Chunks
+        const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+        const fullAudio = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of audioChunksRef.current) {
+            fullAudio.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        if (onSpeechEnd) onSpeechEnd(fullAudio);
+
+        // Reset State
+        isTalkingRef.current = false;
+        setIsTalking(false);
+        silenceStartTimeRef.current = null;
+        audioChunksRef.current = [];
+    }, [onSpeechEnd]);
+
     const detectEnergy = () => {
         if (!analyserRef.current) return;
 
@@ -122,6 +143,16 @@ export function useEnergyVAD({
         const volume = average / 255; // 0.0 to 1.0
 
         const now = Date.now();
+
+        if (isTalkingRef.current) {
+            // CHECK HARD LIMIT
+            if (now - speechStartTimeRef.current > maxSpeechDuration) {
+                console.log("Max Speech Duration Reached. Cutting off.");
+                processSpeechEnd();
+                animationFrameRef.current = requestAnimationFrame(detectEnergy);
+                return;
+            }
+        }
 
         if (volume > positiveSpeechThreshold) {
             // SPEECH DETECTED
@@ -152,23 +183,14 @@ export function useEnergyVAD({
 
                     if (speechDuration > minSpeechDuration) {
                         // VALID SPEECH
-                        // Merge Chunks
-                        const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
-                        const fullAudio = new Float32Array(totalLength);
-                        let offset = 0;
-                        for (const chunk of audioChunksRef.current) {
-                            fullAudio.set(chunk, offset);
-                            offset += chunk.length;
-                        }
-
-                        if (onSpeechEnd) onSpeechEnd(fullAudio);
+                        processSpeechEnd();
+                    } else {
+                        // IGNORE (Too short)
+                        isTalkingRef.current = false;
+                        setIsTalking(false);
+                        silenceStartTimeRef.current = null;
+                        audioChunksRef.current = [];
                     }
-
-                    // Reset State
-                    isTalkingRef.current = false;
-                    setIsTalking(false);
-                    silenceStartTimeRef.current = null;
-                    audioChunksRef.current = [];
                 }
             }
         }

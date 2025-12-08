@@ -27,9 +27,10 @@ export function PatientView() {
 
     // 2. THE EAR (Standard Web Audio VAD - Raw PCM Mode)
     const { start: startVAD, stop: stopVAD, userSpeaking, listening } = useEnergyVAD({
-        positiveSpeechThreshold: 0.05,
+        positiveSpeechThreshold: 0.1, // Less sensitive to ignore background noise
         minSpeechDuration: 500,
-        silenceTimeout: 1200,
+        silenceTimeout: 800, // Faster silence detection
+        maxSpeechDuration: 10000, // 10s Hard Limit (Fixes 413 Error)
         onSpeechStart: () => {
             addLog("Hearing voice...");
             if (audioRef.current) {
@@ -42,6 +43,9 @@ export function PatientView() {
             // Note: audioFloat32 is a Float32Array (Raw PCM)
             const secs = (audioFloat32.length / 16000).toFixed(2);
             addLog(`Speech End. (${secs}s)`);
+            if (parseFloat(secs) > 10) {
+                addLog("Warning: Audio truncated >10s");
+            }
             setIsProcessing(true);
             handleUserSpeech(audioFloat32);
         }
@@ -97,8 +101,14 @@ export function PatientView() {
             if (!res.ok) {
                 const errData = await res.json();
                 console.error("API Error Details:", errData);
+
+                let errorMsg = errData.error || "Unknown Error";
+                if (errData.debug && errData.debug.availableKeys) {
+                    errorMsg += `\n\nDEBUG INFO: Server sees these keys:\n${JSON.stringify(errData.debug.availableKeys)}`;
+                }
+
                 addLog(`API Error: ${errData.error}`);
-                alert("API Error: " + (errData.error || "Unknown Error"));
+                alert("API Error: " + errorMsg);
                 setIsProcessing(false);
                 return;
             }
