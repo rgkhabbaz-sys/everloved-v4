@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 // FORCE LOCAL ORT INSTANCE (The one that works!)
 if (typeof window !== "undefined") {
     (window as any).ort = ort;
+    // FORCE STANDARD MODE (No SIMD, No Threads) to ensure compatibility
+    // This matches the "ort-wasm.wasm" file we have in public/
     ort.env.wasm.wasmPaths = "/";
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.simd = false;
@@ -91,9 +93,8 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
         // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
         // @ts-ignore
-        // FIX: Point to specific WASM version compatible with the library (v1.14.0)
-        // Using local v1.17.1 WASM caused "Error 7" (valid file, wrong version)
-        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
+        // REVERT TO LOCAL (Standard Mode forced above)
+        onnxWASMBasePath: "/",
         // @ts-ignore
         baseAssetPath: "/",
         onFrameProcessed: (probs) => {
