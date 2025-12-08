@@ -4,8 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
 import { useMicVAD } from "@ricky0123/vad-react";
-import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
-import { useMicVAD } from "@ricky0123/vad-react";
 import { cn } from "@/lib/utils";
 
 // Removed global ORT config to allow library defaults (V3 style)
