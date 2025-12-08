@@ -16,13 +16,54 @@ if (typeof window !== "undefined") {
     ort.env.wasm.proxy = false;
 }
 
+// ----------------------------------------------------------------------------
+// MAIN VIEW COMPONENT (Handles Blob Pre-loading to prevent Error 7)
+// ----------------------------------------------------------------------------
 export function PatientView() {
+    const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null);
+    const [blobStatus, setBlobStatus] = useState("Init...");
+
+    // PRE-FETCH MODEL TO BLOB (Bypass Library Fetch)
+    useEffect(() => {
+        const loadModel = async () => {
+            try {
+                setBlobStatus("Pre-fetching Model...");
+                const response = await fetch("/silero_vad.onnx");
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                setModelBlobUrl(url);
+                setBlobStatus("Model Blob Ready.");
+            } catch (e) {
+                setBlobStatus("Model Fetch Fail");
+                console.error(e);
+            }
+        };
+        loadModel();
+    }, []);
+
+    // Only render the Logic when the Blob is READY.
+    // This guarantees the VAD hook never sees a bad URL.
+    if (!modelBlobUrl) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-black text-white">
+                <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-400" />
+                <p className="text-sm text-white/50">{blobStatus}</p>
+            </div>
+        );
+    }
+
+    return <VoiceLogic modelBlobUrl={modelBlobUrl} />;
+}
+
+// ----------------------------------------------------------------------------
+// VOICE LOGIC (The actual App)
+// ----------------------------------------------------------------------------
+function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
     // 1. STATE MANAGEMENT
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [isTalking, setIsTalking] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null);
 
     // 5. DEBUG LOGGING (History of last 3 logs)
     const [debugLog, setDebugLog] = useState<string[]>(["Init..."]);
@@ -38,23 +79,6 @@ export function PatientView() {
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // PRE-FETCH MODEL TO BLOB (Bypass Library Fetch)
-    useEffect(() => {
-        const loadModel = async () => {
-            try {
-                addLog("Pre-fetching Model...");
-                const response = await fetch("/silero_vad.onnx");
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                setModelBlobUrl(url);
-                addLog("Model Blob Ready.");
-            } catch (e) {
-                addLog("Model Fetch Fail");
-            }
-        };
-        loadModel();
-    }, []);
-
     const frameCount = useRef(0);
 
     // 2. THE EAR (VAD HOOK)
@@ -63,7 +87,7 @@ export function PatientView() {
         positiveSpeechThreshold: 0.1, // Ultra-sensitive
         // FORCE LOCAL FILES
         // @ts-ignore
-        modelURL: modelBlobUrl || "/silero_vad.onnx",
+        modelURL: modelBlobUrl,
         // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
         // @ts-ignore
