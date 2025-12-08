@@ -93,7 +93,7 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
         // @ts-ignore
         workletURL: "/vad.worklet.bundle.min.js",
         // @ts-ignore
-        // REVERT TO LOCAL (Standard Mode forced above)
+        // ALIGNED: v1.14.0 Local Files (Copied from node_modules)
         onnxWASMBasePath: "/",
         // @ts-ignore
         baseAssetPath: "/",
