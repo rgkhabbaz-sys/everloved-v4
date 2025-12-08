@@ -1,4 +1,4 @@
-```
+
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -25,148 +25,104 @@ export function PatientView() {
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-        // @ts-ignore
-        // ALIGNED: v1.14.0 Local Files (Copied from node_modules)
-        onnxWASMBasePath: "/",
-        // @ts-ignore
-        baseAssetPath: "/",
-        onFrameProcessed: (probs) => {
-            frameCount.current++;
-            if (frameCount.current % 50 === 0) {
-                // Log probability to see if model is alive
-                // probs is usually a number or object depending on version. Assuming number for isSpeech event
-                // Actually vad-react onFrameProcessed gives raw probabilities.
-                // let's just assume it works and print it.
-                // console.log("VAD Prob:", probs);
-            }
-        },
+    // 2. THE EAR (Standard Web Audio VAD - No AI Dependencies)
+    const { start: startVAD, stop: stopVAD, userSpeaking, listening } = useEnergyVAD({
+        positiveSpeechThreshold: 0.05, // Very sensitive (Green Bar logic)
+        minSpeechDuration: 500, // Ignore short clicks
+        silenceTimeout: 1200, // Wait 1.2s of silence before sending
         onSpeechStart: () => {
-            addLog("Speech Detected!");
-            setIsTalking(true);
-            // Barge-in: Stop any playing audio
+            addLog("Hearing voice...");
+            // Barge-in logic
             if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current.currentTime = 0;
                 setIsPlaying(false);
             }
         },
-        onSpeechEnd: (audio) => {
-            const secs = (audio.length / 16000).toFixed(2);
-            addLog(`Speech End. (${ secs }s / ${ audio.length } samples)`);
-            setIsTalking(false);
+        onSpeechEnd: (audioBlob) => {
+            addLog(`Speech End. (${(audioBlob.size / 1024).toFixed(1)}KB)`);
             setIsProcessing(true);
-            handleUserSpeech(audio);
-        },
-    });
-
-    // Monitor VAD Loading State & Run Diagnostics
-    useEffect(() => {
-        const runDiagnostics = async () => {
-            // Diagnostic: Check global ORT
-            if (!(window as any).ort) addLog("CRITICAL: Global 'ort' missing!");
-
-            if (vad.loading) addLog(`Loading...(L: ${ vad.loading ? 1 : 0} E: ${ vad.errored ? 1 : 0})`);
-
-            // DIAGNOSTIC: Check if files actually exist and ONNX works
-            try {
-                const modelRes = await fetch("/silero_vad.onnx", { method: 'HEAD' });
-                if (!modelRes.ok) throw new Error(`Model 404(${ modelRes.status })`);
-
-                // MANUAL TEST: Try to create session to see REAL error
-                // if ((window as any).ort) {
-                //     addLog("Diag: Testing ONNX Create...");
-                //     await (window as any).ort.InferenceSession.create("/silero_vad.onnx");
-                //     addLog("Diag: Session Create OK.");
-                // }
-            } catch (diagErr: any) {
-                console.error("Diagnostic Fail:", diagErr);
-                addLog(`CRITICAL: ${ diagErr.message } `);
-                // If it's an object, dump it
-                if (diagErr.errors) addLog(`Details: ${ JSON.stringify(diagErr.errors) } `);
-            }
-        };
-        runDiagnostics();
-
-        if (vad.errored) {
-            console.error("VAD Error Details:", vad.errored);
-            addLog(`Error: ${ JSON.stringify(vad.errored).slice(0, 40) } `);
+            handleUserSpeech(audioBlob);
         }
-    }, [vad.loading, vad.errored, isSessionActive]);
+    });
 
     // 3. INTERACTION HANDLER
     const startConversation = async () => {
         try {
-            addLog("Starting VAD...");
+            addLog("Starting Ears...");
             setIsSessionActive(true);
-
-            // Await start to catch immediate failures
-            await vad.start();
-            addLog("Listening (VAD Started)");
+            await startVAD();
+            addLog("Listening (Local VAD)");
         } catch (err: any) {
             console.error("Start Failed:", err);
-            addLog(`Error: Start Failed: ${ err.message } `);
-            alert("Failed to start AI. Check console.");
+            addLog(`Error: ${err.message} `);
+            alert("Microphone Access Failed");
         }
     };
 
-    // 4. API INTEGRATION
-    const handleUserSpeech = async (audioFloat32: Float32Array) => {
+    // 4. API INTEGRATION (Updated for Blob)
+    const handleUserSpeech = async (audioBlob: Blob) => {
         try {
             addLog("Encoding Audio...");
-            // Convert Float32Array to WAV Base64 for Gemini
-            const wavBase64 = float32ToWavBase64(audioFloat32);
 
-            // Construct Gemini Multimodal Payload
-            // forcing "message" to be an array so backend passes it to model.sendMessage([])
-            const messagePayload = [
-                {
-                    inlineData: {
-                        mimeType: "audio/wav",
-                        data: wavBase64
-                    }
-                },
-                { text: "Respond to this verbal statement." }
-            ];
+            // Convert Blob to Base64
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+                const base64Audio = (reader.result as string).split(',')[1];
 
-            const storedProfile = localStorage.getItem("everloved_profile");
-            const profile = storedProfile ? JSON.parse(storedProfile) : null;
+                // Construct Gemini Payload
+                const messagePayload = [
+                    {
+                        inlineData: {
+                            // MediaRecorder usually gives webm (Chrome) or mp4 (Safari)
+                            // Gemini handles 'audio/webm' usually.
+                            mimeType: audioBlob.type.includes('mp4') ? 'audio/mp4' : 'audio/webm',
+                            data: base64Audio
+                        }
+                    },
+                    { text: "Respond to this verbal statement." }
+                ];
 
-            addLog("Sending to API...");
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: messagePayload,
-                    profile: profile || undefined
-                }),
-            });
+                addLog("Sending to API...");
 
-            if (!res.ok) {
-                const errData = await res.json();
-                addLog(`API Error: ${ errData.error } `);
-                alert("Error: " + (errData.error || "Failed to process speech. Check API keys."));
+                const storedProfile = localStorage.getItem("everloved_profile");
+                const profile = storedProfile ? JSON.parse(storedProfile) : null;
+
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: messagePayload,
+                        profile: profile || undefined
+                    }),
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    addLog(`API Error: ${errData.error} `);
+                    setIsProcessing(false);
+                    return;
+                }
+
+                const data = await res.json();
                 setIsProcessing(false);
-                return;
-            }
 
-            const data = await res.json();
-            setIsProcessing(false);
+                if (data.text) {
+                    setAiResponse(data.text);
+                }
 
-            if (data.text) {
-                setAiResponse(data.text);
-            }
-
-            if (data.audio) {
-                addLog("Playing Response...");
-                playAudio(data.audio);
-            } else {
-                addLog("Received Text (No Audio)");
-            }
+                if (data.audio) {
+                    addLog("Playing Response...");
+                    playAudio(data.audio);
+                } else {
+                    addLog("Received Text (No Audio)");
+                }
+            };
         } catch (error) {
             console.error("Error sending audio:", error);
             addLog("Connection Failed");
             setIsProcessing(false);
-            alert("Connection Error. Please check your network.");
         }
     };
 
@@ -174,7 +130,7 @@ export function PatientView() {
         setIsPlaying(true);
         if (audioRef.current) {
             try {
-                audioRef.current.src = `data: audio / mpeg; base64, ${ base64Audio } `;
+                audioRef.current.src = `data: audio / mpeg; base64, ${base64Audio} `;
                 await audioRef.current.play();
                 addLog("Speaking...");
                 audioRef.current.onended = () => {
@@ -196,7 +152,7 @@ export function PatientView() {
             {/* MAIN CONTENT */}
             <div className="relative z-10 w-full h-full p-8 flex flex-col justify-end">
 
-                {/* STATUS INDICATOR (ONLY WHEN ACTIVE) */}
+                {/* STATUS INDICATOR */}
                 {isSessionActive && (
                     <div className="absolute top-12 left-0 right-0 flex flex-col items-center pointer-events-none gap-2">
                         <motion.div
@@ -204,16 +160,16 @@ export function PatientView() {
                             animate={{ opacity: 1, y: 0 }}
                             className={cn(
                                 "px-6 py-2 rounded-full backdrop-blur-md border flex items-center gap-3 shadow-lg transition-colors duration-300",
-                                isTalking ? "bg-red-500/20 border-red-500/50 text-red-200" :
+                                userSpeaking ? "bg-red-500/20 border-red-500/50 text-red-200" :
                                     isProcessing ? "bg-blue-500/20 border-blue-500/50 text-blue-200" :
                                         isPlaying ? "bg-green-500/20 border-green-500/50 text-green-200" :
                                             "bg-black/40 border-white/10 text-white/60"
                             )}
                         >
-                            {isTalking && <><div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Listening...</>}
+                            {userSpeaking && <><div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Hearing Voice...</>}
                             {isProcessing && <><Loader2 className="w-4 h-4 animate-spin text-blue-400" /> Thinking...</>}
                             {isPlaying && <><Volume2 className="w-4 h-4 text-green-400 animate-pulse" /> Speaking...</>}
-                            {!isTalking && !isProcessing && !isPlaying && <><Mic className="w-4 h-4" /> Listening Hands-Free</>}
+                            {!userSpeaking && !isProcessing && !isPlaying && <><Mic className="w-4 h-4" /> Listening (Standard VAD)</>}
                         </motion.div>
 
                         {/* AI RESPONSE TEXT - VISIBLE FEEDBACK */}
@@ -242,7 +198,7 @@ export function PatientView() {
 
                     {/* Controls */}
                     <div className="flex flex-col items-end gap-6 mb-4">
-                        {/* Conversation Button - Works as Manual Emergency Trigger too */}
+                        {/* Conversation Button */}
                         <motion.button
                             onClick={startConversation}
                             whileHover={{ scale: 1.1 }}
@@ -251,14 +207,14 @@ export function PatientView() {
                             transition={isPlaying ? { repeat: Infinity, duration: 2 } : {}}
                             className={cn(
                                 "w-20 h-20 rounded-full flex items-center justify-center shadow-2xl mt-4 transition-all duration-300",
-                                isTalking ? "bg-red-500 scale-110 shadow-[0_0_30px_rgba(239,68,68,0.5)]" :
+                                userSpeaking ? "bg-red-500 scale-110 shadow-[0_0_30px_rgba(239,68,68,0.5)]" :
                                     isProcessing ? "bg-blue-500 scale-100" : "bg-white"
                             )}
                         >
                             {isProcessing ? (
                                 <Loader2 className="w-8 h-8 text-white animate-spin" />
                             ) : (
-                                <Mic className={cn("w-8 h-8", isTalking ? "text-white" : "text-black")} />
+                                <Mic className={cn("w-8 h-8", userSpeaking ? "text-white" : "text-black")} />
                             )}
                         </motion.button>
 
@@ -284,66 +240,4 @@ export function PatientView() {
             </div>
         </div>
     );
-}
-
-// ----------------------------------------------------------------------------
-// AUDIO UTILS (WAV ENCODER)
-// ----------------------------------------------------------------------------
-function float32ToWavBase64(float32Array: Float32Array): string {
-    const numChannels = 1;
-    const sampleRate = 16000; // VAD default
-    const format = 1; // PCM
-    const bitDepth = 16;
-
-    const buffer = new ArrayBuffer(44 + float32Array.length * 2);
-    const view = new DataView(buffer);
-
-    // RIFF identifier
-    writeString(view, 0, 'RIFF');
-    // file length
-    view.setUint32(4, 36 + float32Array.length * 2, true);
-    // RIFF type
-    writeString(view, 8, 'WAVE');
-    // format chunk identifier
-    writeString(view, 12, 'fmt ');
-    // format chunk length
-    view.setUint32(16, 16, true);
-    // sample format (raw)
-    view.setUint16(20, format, true);
-    // channel count
-    view.setUint16(22, numChannels, true);
-    // sample rate
-    view.setUint32(24, sampleRate, true);
-    // byte rate (sample rate * block align)
-    view.setUint32(28, sampleRate * 2, true);
-    // block align (channel count * bytes per sample)
-    view.setUint16(32, 2, true);
-    // bits per sample
-    view.setUint16(34, bitDepth, true);
-    // data chunk identifier
-    writeString(view, 36, 'data');
-    // data chunk length
-    view.setUint32(40, float32Array.length * 2, true);
-
-    // write the PCM samples
-    let offset = 44;
-    for (let i = 0; i < float32Array.length; i++, offset += 2) {
-        const s = Math.max(-1, Math.min(1, float32Array[i]));
-        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-
-    // Convert ArrayBuffer to Base64
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
-
-function writeString(view: DataView, offset: number, string: string) {
-    for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-    }
 }
