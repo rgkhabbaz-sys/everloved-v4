@@ -1,76 +1,20 @@
+```
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Video, Music, Wind, MessageCircle, Loader2, Volume2, Play } from "lucide-react";
-import { useMicVAD } from "@ricky0123/vad-react";
-import * as ort from "onnxruntime-web";
 import { cn } from "@/lib/utils";
+import { useEnergyVAD } from "@/hooks/useEnergyVAD";
 
-// FORCE LOCAL ORT INSTANCE (The one that works!)
-if (typeof window !== "undefined") {
-    (window as any).ort = ort;
-    // FORCE STANDARD MODE (No SIMD, No Threads) to ensure compatibility
-    // This matches the "ort-wasm.wasm" file we have in public/
-    ort.env.wasm.wasmPaths = "/";
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.simd = false;
-    ort.env.wasm.proxy = false;
-}
-
-// ----------------------------------------------------------------------------
-// MAIN VIEW COMPONENT (Handles Blob Pre-loading to prevent Error 7)
-// ----------------------------------------------------------------------------
 export function PatientView() {
-    const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null);
-    const [blobStatus, setBlobStatus] = useState("Init...");
-
-    // PRE-FETCH MODEL TO BLOB (Bypass Library Fetch)
-    useEffect(() => {
-        const loadModel = async () => {
-            try {
-                setBlobStatus("Pre-fetching Model...");
-                const response = await fetch("/silero_vad.onnx");
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                setModelBlobUrl(url);
-                setBlobStatus("Model Blob Ready.");
-            } catch (e) {
-                setBlobStatus("Model Fetch Fail");
-                console.error(e);
-            }
-        };
-        loadModel();
-    }, []);
-
-    // Only render the Logic when the Blob is READY.
-    // This guarantees the VAD hook never sees a bad URL.
-    if (!modelBlobUrl) {
-        return (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-black text-white">
-                <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-400" />
-                <p className="text-sm text-white/50">{blobStatus}</p>
-            </div>
-        );
-    }
-
-    return <VoiceLogic modelBlobUrl={modelBlobUrl} />;
-}
-
-// ----------------------------------------------------------------------------
-// VOICE LOGIC (The actual App)
-// ----------------------------------------------------------------------------
-function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
     // 1. STATE MANAGEMENT
     const [isSessionActive, setIsSessionActive] = useState(false);
-    const [isTalking, setIsTalking] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
 
     // 5. DEBUG LOGGING (History of last 3 logs)
-    const [debugLog, setDebugLog] = useState<string[]>(["Init..."]);
-    // 7. VOLUME METER
-    const [volume, setVolume] = useState(0);
+    const [debugLog, setDebugLog] = useState<string[]>(["Ready."]);
     // 6. AI TEXT RESPONSE (Visible Feedback)
     const [aiResponse, setAiResponse] = useState<string | null>(null);
 
@@ -81,17 +25,6 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    const frameCount = useRef(0);
-
-    // 2. THE EAR (VAD HOOK)
-    const vad = useMicVAD({
-        startOnLoad: false,
-        positiveSpeechThreshold: 0.1, // Ultra-sensitive
-        // FORCE LOCAL FILES
-        // @ts-ignore
-        modelURL: modelBlobUrl,
-        // @ts-ignore
-        workletURL: "/vad.worklet.bundle.min.js",
         // @ts-ignore
         // ALIGNED: v1.14.0 Local Files (Copied from node_modules)
         onnxWASMBasePath: "/",
@@ -119,7 +52,7 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
         },
         onSpeechEnd: (audio) => {
             const secs = (audio.length / 16000).toFixed(2);
-            addLog(`Speech End. (${secs}s / ${audio.length} samples)`);
+            addLog(`Speech End. (${ secs }s / ${ audio.length } samples)`);
             setIsTalking(false);
             setIsProcessing(true);
             handleUserSpeech(audio);
@@ -132,12 +65,12 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
             // Diagnostic: Check global ORT
             if (!(window as any).ort) addLog("CRITICAL: Global 'ort' missing!");
 
-            if (vad.loading) addLog(`Loading...(L:${vad.loading ? 1 : 0} E:${vad.errored ? 1 : 0})`);
+            if (vad.loading) addLog(`Loading...(L: ${ vad.loading ? 1 : 0} E: ${ vad.errored ? 1 : 0})`);
 
             // DIAGNOSTIC: Check if files actually exist and ONNX works
             try {
                 const modelRes = await fetch("/silero_vad.onnx", { method: 'HEAD' });
-                if (!modelRes.ok) throw new Error(`Model 404 (${modelRes.status})`);
+                if (!modelRes.ok) throw new Error(`Model 404(${ modelRes.status })`);
 
                 // MANUAL TEST: Try to create session to see REAL error
                 // if ((window as any).ort) {
@@ -147,16 +80,16 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
                 // }
             } catch (diagErr: any) {
                 console.error("Diagnostic Fail:", diagErr);
-                addLog(`CRITICAL: ${diagErr.message}`);
+                addLog(`CRITICAL: ${ diagErr.message } `);
                 // If it's an object, dump it
-                if (diagErr.errors) addLog(`Details: ${JSON.stringify(diagErr.errors)}`);
+                if (diagErr.errors) addLog(`Details: ${ JSON.stringify(diagErr.errors) } `);
             }
         };
         runDiagnostics();
 
         if (vad.errored) {
             console.error("VAD Error Details:", vad.errored);
-            addLog(`Error: ${JSON.stringify(vad.errored).slice(0, 40)}`);
+            addLog(`Error: ${ JSON.stringify(vad.errored).slice(0, 40) } `);
         }
     }, [vad.loading, vad.errored, isSessionActive]);
 
@@ -171,7 +104,7 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
             addLog("Listening (VAD Started)");
         } catch (err: any) {
             console.error("Start Failed:", err);
-            addLog(`Error: Start Failed: ${err.message}`);
+            addLog(`Error: Start Failed: ${ err.message } `);
             alert("Failed to start AI. Check console.");
         }
     };
@@ -210,7 +143,7 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
 
             if (!res.ok) {
                 const errData = await res.json();
-                addLog(`API Error: ${errData.error}`);
+                addLog(`API Error: ${ errData.error } `);
                 alert("Error: " + (errData.error || "Failed to process speech. Check API keys."));
                 setIsProcessing(false);
                 return;
@@ -241,7 +174,7 @@ function VoiceLogic({ modelBlobUrl }: { modelBlobUrl: string }) {
         setIsPlaying(true);
         if (audioRef.current) {
             try {
-                audioRef.current.src = `data:audio/mpeg;base64,${base64Audio}`;
+                audioRef.current.src = `data: audio / mpeg; base64, ${ base64Audio } `;
                 await audioRef.current.play();
                 addLog("Speaking...");
                 audioRef.current.onended = () => {
