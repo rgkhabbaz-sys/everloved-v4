@@ -36,9 +36,9 @@ export async function POST(req: Request) {
 
         console.log("Processing Request for:", profile.name);
 
-        // Switch to stable Gemini 1.5 Flash (Standard Production Model)
-        // This avoids the 404 (incorrect name) and 429 (quota limit 0 on exp models)
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Switch to generic generic alias which IS available in the user's list
+        // 'gemini-1.5-flash' was missing from the list_models output, but 'gemini-flash-latest' exists.
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
         const prompt = `
         You are roleplaying as ${profile.name}, a ${profile.age}-year-old ${profile.relation}.
