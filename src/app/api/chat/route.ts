@@ -36,10 +36,11 @@ export async function POST(req: Request) {
 
         console.log("Processing Request for:", profile.name);
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Switch to Pro model (Flash returned 404)
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-        // --- 1. DUAL-LAYER CLINICAL SYSTEM PROMPT ---
-        const systemPrompt = `
+        const prompt = `
+        You are roleplaying as ${profile.name}, a ${profile.age}-year-old ${profile.relation}.
     CRITICAL ROLE: You are an Elite Alzheimer's Care Companion roleplaying as ${profile.name} (${profile.relation}).
 
     LAYER 1 (THE PERSONA):
