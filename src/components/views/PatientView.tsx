@@ -137,21 +137,44 @@ export function PatientView() {
     };
 
     const fallbackSpeech = (text: string) => {
-        addLog("Using Backup Voice...");
+        window.speechSynthesis.cancel(); // STOP any previous speech
+        addLog("Attempting Backup Voice...");
+
         const utterance = new SpeechSynthesisUtterance(text);
-        // Try to select a decent voice
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Samantha"));
+
+        // Prefer Samantha (Mac) or Google US English, backup to any EN voice
+        const preferredVoice = voices.find(v => v.name.includes("Samantha") || v.name.includes("Google US English"))
+            || voices.find(v => v.lang.startsWith("en"));
+
         if (preferredVoice) utterance.voice = preferredVoice;
 
         utterance.rate = 0.9;
-        utterance.onstart = () => setIsPlaying(true);
+        utterance.volume = 1.0;
+
+        utterance.onstart = () => {
+            addLog("Backup Voice Speaking...");
+            setIsPlaying(true);
+        };
         utterance.onend = () => {
             setIsPlaying(false);
             addLog("Listening...");
         };
+        utterance.onerror = (e) => {
+            console.error("TTS Error:", e);
+            addLog("TTS Failed.");
+            setIsPlaying(false);
+        };
+
         window.speechSynthesis.speak(utterance);
     };
+
+    // Pre-load voices on mount to avoid empty voice list
+    useEffect(() => {
+        const load = () => window.speechSynthesis.getVoices();
+        load();
+        window.speechSynthesis.onvoiceschanged = load;
+    }, []);
 
     const playAudio = async (base64Audio: string) => {
         setIsPlaying(true);
@@ -201,9 +224,15 @@ export function PatientView() {
 
                         {/* CRITICAL DEBUGGING: Voice Error Banner */}
                         {debugLog.some(l => l.startsWith("Voice Err:")) && (
-                            <div className="bg-red-600 text-white p-4 rounded-lg shadow-2xl animate-bounce border-2 border-white mb-4 z-50">
+                            <div className="bg-red-600 text-white p-4 rounded-lg shadow-2xl animate-bounce border-2 border-white mb-4 z-50 flex flex-col items-center gap-2">
                                 <p className="font-bold text-lg">⚠️ AUDIO FAILURE ⚠️</p>
                                 <p className="font-mono text-sm">{debugLog.find(l => l.startsWith("Voice Err:"))}</p>
+                                <button
+                                    onClick={() => aiResponse && fallbackSpeech(aiResponse)}
+                                    className="px-4 py-2 bg-white text-red-600 font-bold rounded-full hover:bg-gray-100 transition-colors mt-2"
+                                >
+                                    ▶️ FORCE PLAY RESPONSE
+                                </button>
                             </div>
                         )}
 
