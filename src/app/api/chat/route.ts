@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         try {
             const chat = model.startChat({
                 history: [
-                    { role: "user", parts: [{ text: systemPrompt }] },
+                    { role: "user", parts: [{ text: prompt }] },
                     { role: "model", parts: [{ text: "I understand. I am ready to be a loving companion." }] },
                 ],
             });
@@ -83,6 +83,7 @@ export async function POST(req: Request) {
 
         if (!voiceId) {
             console.warn("Missing Voice ID for gender:", profile.gender);
+            return NextResponse.json({ text, error: "Voice configuration missing" });
         }
 
         try {
