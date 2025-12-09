@@ -36,9 +36,9 @@ export async function POST(req: Request) {
 
         console.log("Processing Request for:", profile.name);
 
-        // Switch to generic generic alias which IS available in the user's list
-        // 'gemini-1.5-flash' was missing from the list_models output, but 'gemini-flash-latest' exists.
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        // Switch to Gemini 2.0 Flash Lite (Preview) to bypass 1.5 Flash Quota exhaustion
+        // Confirmed available in user's list_models output
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite-preview-02-05" });
 
         const prompt = `
         You are roleplaying as ${profile.name}, a ${profile.age}-year-old ${profile.relation}.

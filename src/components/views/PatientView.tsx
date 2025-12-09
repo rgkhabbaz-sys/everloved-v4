@@ -102,13 +102,11 @@ export function PatientView() {
                 const errData = await res.json();
                 console.error("API Error Details:", errData);
 
-                let errorMsg = errData.error || "Unknown Error";
-                if (errData.debug && errData.debug.availableKeys) {
-                    errorMsg += `\n\nDEBUG INFO: Server sees these keys:\n${JSON.stringify(errData.debug.availableKeys)}`;
-                }
+                // Show in debug log instead of Alert
+                addLog(`Brain Error: ${errData.error?.substring(0, 30)}...`);
+                // Also set as response to make it visible in the speech bubble
+                setAiResponse(`Error: ${errData.error}`);
 
-                addLog(`API Error: ${errData.error}`);
-                alert("API Error: " + errorMsg);
                 setIsProcessing(false);
                 return;
             }
