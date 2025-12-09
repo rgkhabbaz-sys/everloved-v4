@@ -102,24 +102,23 @@ export async function POST(req: Request) {
                 }),
             });
 
-            if (!voiceRes.ok) {
-                const errText = await voiceRes.text();
-                console.error("ElevenLabs Error:", errText);
-                throw new Error(`Voice generation failed: ${voiceRes.statusText}`);
-            }
-
-            const audioBuffer = await voiceRes.arrayBuffer();
-            const audioBase64 = Buffer.from(audioBuffer).toString("base64");
-
-            return NextResponse.json({ text, audio: audioBase64 });
-        } catch (voiceError) {
-            console.error("Voice Generation Error:", voiceError);
-            // Return text even if voice fails
-            return NextResponse.json({ text, error: "Voice failed" });
+            const content = await voiceRes.text(); // Get error details
+            console.error("ElevenLabs Error:", content);
+            throw new Error(content || voiceRes.statusText);
         }
 
-    } catch (error) {
-        console.error("General API Error:", error);
-        return NextResponse.json({ error: "Error processing request" }, { status: 500 });
+            const audioBuffer = await voiceRes.arrayBuffer();
+        const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+
+        return NextResponse.json({ text, audio: audioBase64 });
+    } catch (voiceError: any) {
+        console.error("Voice Generation Error:", voiceError);
+        // Return text even if voice fails, BUT include the specific error message for debugging
+        return NextResponse.json({ text, error: voiceError.message || "Voice failed" });
     }
+
+} catch (error) {
+    console.error("General API Error:", error);
+    return NextResponse.json({ error: "Error processing request" }, { status: 500 });
+}
 }

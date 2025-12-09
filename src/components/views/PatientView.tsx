@@ -125,6 +125,7 @@ export function PatientView() {
                 playAudio(data.audio);
             } else {
                 addLog("Received Text (No Audio)");
+                if (data.error) addLog(`Voice Err: ${data.error.substring(0, 20)}...`);
             }
         } catch (error) {
             console.error("Error sending audio:", error);
