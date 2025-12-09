@@ -123,15 +123,34 @@ export function PatientView() {
             if (data.audio) {
                 addLog("Playing Response...");
                 playAudio(data.audio);
-            } else {
-                addLog("Received Text (No Audio)");
-                if (data.error) addLog(`Voice Err: ${data.error.substring(0, 20)}...`);
+            } else if (data.text) {
+                addLog("Voice Failed. Using Backup.");
+                if (data.error) console.warn("Voice API Error:", data.error);
+                // Fallback to browser TTS
+                fallbackSpeech(data.text);
             }
         } catch (error) {
             console.error("Error sending audio:", error);
             addLog("Connection Failed");
             setIsProcessing(false);
         }
+    };
+
+    const fallbackSpeech = (text: string) => {
+        addLog("Using Backup Voice...");
+        const utterance = new SpeechSynthesisUtterance(text);
+        // Try to select a decent voice
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Samantha"));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        utterance.rate = 0.9;
+        utterance.onstart = () => setIsPlaying(true);
+        utterance.onend = () => {
+            setIsPlaying(false);
+            addLog("Listening...");
+        };
+        window.speechSynthesis.speak(utterance);
     };
 
     const playAudio = async (base64Audio: string) => {
