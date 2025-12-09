@@ -180,6 +180,14 @@ export function PatientView() {
                             {!userSpeaking && !isProcessing && !isPlaying && <><Mic className="w-4 h-4" /> Listening (Standard VAD)</>}
                         </motion.div>
 
+                        {/* CRITICAL DEBUGGING: Voice Error Banner */}
+                        {debugLog.some(l => l.startsWith("Voice Err:")) && (
+                            <div className="bg-red-600 text-white p-4 rounded-lg shadow-2xl animate-bounce border-2 border-white mb-4 z-50">
+                                <p className="font-bold text-lg">⚠️ AUDIO FAILURE ⚠️</p>
+                                <p className="font-mono text-sm">{debugLog.find(l => l.startsWith("Voice Err:"))}</p>
+                            </div>
+                        )}
+
                         {/* AI RESPONSE TEXT - VISIBLE FEEDBACK */}
                         {aiResponse && (
                             <div className="mb-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 max-w-md text-center">
