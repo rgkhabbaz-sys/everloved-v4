@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
         console.log("Processing Request for:", profile.name);
 
-        // Switch to Pro model (Flash returned 404)
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        // Switch to Gemini 2.0 Flash (Experimental) as requested
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
         const prompt = `
         You are roleplaying as ${profile.name}, a ${profile.age}-year-old ${profile.relation}.
