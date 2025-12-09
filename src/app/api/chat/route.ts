@@ -109,12 +109,14 @@ export async function POST(req: Request) {
             }
 
             const audioBuffer = await voiceRes.arrayBuffer();
+            const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+
+            return NextResponse.json({ text, audio: audioBase64 });
+        } catch (voiceError: any) {
             console.error("Voice Generation Error:", voiceError);
-            // Return text even if voice fails, BUT include the specific error message for debugging
             return NextResponse.json({ text, error: voiceError.message || "Voice failed" });
         }
-
-} catch (error) {
+    } catch (error) {
         console.error("General API Error:", error);
         return NextResponse.json({ error: "Error processing request" }, { status: 500 });
     }
